@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>DirTree Browser</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .toolbar {
+      background: #252526;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid #3c3c3c;
+    }
+    .toolbar button {
+      background: #0e639c;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .toolbar button:hover { background: #1177bb; }
+    .toolbar button:disabled { background: #555; cursor: not-allowed; }
+    .path-display {
+      flex: 1;
+      background: #3c3c3c;
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-family: monospace;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .container {
+      height: calc(100vh - 50px);
+      overflow: auto;
+      padding: 16px;
+    }
+    .tree-item {
+      padding: 4px 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 4px;
+    }
+    .tree-item:hover { background: #2a2d2e; }
+    .tree-item.selected { background: #094771; }
+    .icon { width: 20px; text-align: center; }
+    .icon.folder { color: #dcb67a; }
+    .icon.file { color: #75beff; }
+    .icon.symlink { color: #ce9178; }
+    .name { flex: 1; }
+    .size { color: #6a9955; font-family: monospace; min-width: 80px; text-align: right; }
+    .modified { color: #808080; font-family: monospace; min-width: 160px; }
+    .loading { text-align: center; padding: 40px; color: #808080; }
+    .error { background: #5a1d1d; padding: 16px; border-radius: 4px; margin: 16px; }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button id="btn-back" disabled>Back</button>
+    <button id="btn-up">Up</button>
+    <button id="btn-home">Home</button>
+    <div class="path-display" id="current-path">/</div>
+    <button id="btn-refresh">Refresh</button>
+  </div>
+  <div class="container" id="tree-container">
+    <div class="loading">Loading...</div>
+  </div>
+  <script src="./renderer.js"></script>
+</body>
+</html>
