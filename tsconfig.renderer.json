@@ -1,16 +1,16 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "commonjs",
+    "module": "ES2020",
     "lib": ["ES2022", "DOM"],
-    "outDir": "dist",
-    "rootDir": "src",
+    "outDir": "dist/renderer",
+    "rootDir": "src/renderer",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true
+    "moduleResolution": "bundler"
   },
-  "include": ["src/main/**/*", "src/preload/**/*"],
-  "exclude": ["node_modules", "dist", "src/renderer"]
+  "include": ["src/renderer/**/*"],
+  "exclude": ["node_modules", "dist"]
 }
