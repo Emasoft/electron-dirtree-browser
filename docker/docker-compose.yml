@@ -1,0 +1,115 @@
+version: '3.8'
+
+# Cross-platform build containers for Electron + Rust CLI
+# Usage: docker-compose -f docker/docker-compose.yml run build-linux-x64
+
+services:
+  # Build Linux x64 Electron app with Rust CLI
+  build-linux-x64:
+    image: electronuserland/builder:20
+    volumes:
+      - ..:/project
+      - electron-cache:/root/.cache/electron
+      - pnpm-cache:/root/.local/share/pnpm
+      - rust-cargo:/root/.cargo
+    working_dir: /project
+    environment:
+      - RUST_TARGET=x86_64-unknown-linux-gnu
+      - ELECTRON_PLATFORM=linux
+      - ELECTRON_ARCH=x64
+    command: >
+      bash -c "
+        echo '=== Building xls CLI for Linux x64 ===' &&
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y &&
+        source /root/.cargo/env &&
+        git clone --depth 1 https://github.com/Emasoft/xls-cross-platform.git /tmp/xls &&
+        cd /tmp/xls &&
+        cargo build --release --target x86_64-unknown-linux-gnu &&
+        mkdir -p /project/bin &&
+        cp target/x86_64-unknown-linux-gnu/release/xls /project/bin/xls &&
+        echo '=== Building Electron app for Linux ===' &&
+        cd /project &&
+        npm install -g pnpm &&
+        pnpm install &&
+        pnpm run build &&
+        pnpm exec electron-builder --linux --x64 &&
+        echo '=== Build complete! ===' &&
+        ls -la /project/release/
+      "
+
+  # Build Windows x64 Electron app with Rust CLI (using Wine)
+  build-windows-x64:
+    image: electronuserland/builder:wine
+    volumes:
+      - ..:/project
+      - electron-cache:/root/.cache/electron
+      - pnpm-cache:/root/.local/share/pnpm
+      - rust-cargo:/root/.cargo
+    working_dir: /project
+    environment:
+      - RUST_TARGET=x86_64-pc-windows-gnu
+      - ELECTRON_PLATFORM=win
+      - ELECTRON_ARCH=x64
+    command: >
+      bash -c "
+        echo '=== Building xls CLI for Windows x64 ===' &&
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y &&
+        source /root/.cargo/env &&
+        rustup target add x86_64-pc-windows-gnu &&
+        apt-get update && apt-get install -y mingw-w64 &&
+        git clone --depth 1 https://github.com/Emasoft/xls-cross-platform.git /tmp/xls &&
+        cd /tmp/xls &&
+        cargo build --release --target x86_64-pc-windows-gnu &&
+        mkdir -p /project/bin &&
+        cp target/x86_64-pc-windows-gnu/release/xls.exe /project/bin/xls.exe &&
+        echo '=== Building Electron app for Windows ===' &&
+        cd /project &&
+        npm install -g pnpm &&
+        pnpm install &&
+        pnpm run build &&
+        pnpm exec electron-builder --win --x64 &&
+        echo '=== Build complete! ===' &&
+        ls -la /project/release/
+      "
+
+  # Build Linux arm64 Electron app (for Raspberry Pi, etc.)
+  build-linux-arm64:
+    image: electronuserland/builder:20
+    platform: linux/arm64
+    volumes:
+      - ..:/project
+      - electron-cache-arm:/root/.cache/electron
+      - pnpm-cache-arm:/root/.local/share/pnpm
+      - rust-cargo-arm:/root/.cargo
+    working_dir: /project
+    environment:
+      - RUST_TARGET=aarch64-unknown-linux-gnu
+      - ELECTRON_PLATFORM=linux
+      - ELECTRON_ARCH=arm64
+    command: >
+      bash -c "
+        echo '=== Building xls CLI for Linux arm64 ===' &&
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y &&
+        source /root/.cargo/env &&
+        git clone --depth 1 https://github.com/Emasoft/xls-cross-platform.git /tmp/xls &&
+        cd /tmp/xls &&
+        cargo build --release &&
+        mkdir -p /project/bin &&
+        cp target/release/xls /project/bin/xls &&
+        echo '=== Building Electron app for Linux arm64 ===' &&
+        cd /project &&
+        npm install -g pnpm &&
+        pnpm install &&
+        pnpm run build &&
+        pnpm exec electron-builder --linux --arm64 &&
+        echo '=== Build complete! ===' &&
+        ls -la /project/release/
+      "
+
+volumes:
+  electron-cache:
+  pnpm-cache:
+  rust-cargo:
+  electron-cache-arm:
+  pnpm-cache-arm:
+  rust-cargo-arm:

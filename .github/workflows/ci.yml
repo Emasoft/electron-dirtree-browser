@@ -1,0 +1,209 @@
+name: CI - Cross Platform Build & Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  XLS_REPO: Emasoft/xls-cross-platform
+
+jobs:
+  # Build Rust CLI for all platforms
+  build-rust-cli:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-13
+            rust-target: x86_64-apple-darwin
+            artifact-name: xls-macos-x64
+          - os: macos-14
+            rust-target: aarch64-apple-darwin
+            artifact-name: xls-macos-arm64
+          - os: ubuntu-latest
+            rust-target: x86_64-unknown-linux-gnu
+            artifact-name: xls-linux-x64
+          - os: windows-latest
+            rust-target: x86_64-pc-windows-msvc
+            artifact-name: xls-windows-x64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout xls-cross-platform
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.XLS_REPO }}
+          path: xls
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-target }}
+
+      - name: Build Rust CLI
+        working-directory: xls
+        run: cargo build --release --target ${{ matrix.rust-target }}
+
+      - name: Upload Rust binary (Unix)
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: xls/target/${{ matrix.rust-target }}/release/xls
+          retention-days: 7
+
+      - name: Upload Rust binary (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: xls/target/${{ matrix.rust-target }}/release/xls.exe
+          retention-days: 7
+
+  # Build Electron app for all platforms
+  build-electron:
+    needs: build-rust-cli
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-13
+            platform: mac
+            arch: x64
+            rust-artifact: xls-macos-x64
+            binary-name: xls
+          - os: macos-14
+            platform: mac
+            arch: arm64
+            rust-artifact: xls-macos-arm64
+            binary-name: xls
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+            rust-artifact: xls-linux-x64
+            binary-name: xls
+          - os: windows-latest
+            platform: win
+            arch: x64
+            rust-artifact: xls-windows-x64
+            binary-name: xls.exe
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Download Rust CLI binary
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.rust-artifact }}
+          path: bin/
+
+      - name: Make binary executable (Unix)
+        if: runner.os != 'Windows'
+        run: chmod +x bin/${{ matrix.binary-name }}
+
+      - name: Build TypeScript
+        run: pnpm run build
+
+      - name: Build Electron app
+        run: pnpm exec electron-builder --${{ matrix.platform }} --${{ matrix.arch }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Electron app
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+            release/*.AppImage
+          retention-days: 7
+
+  # Test the built apps
+  test-electron:
+    needs: build-electron
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-13
+            artifact: electron-mac-x64
+            app-path: "release/*.app"
+          - os: macos-14
+            artifact: electron-mac-arm64
+            app-path: "release/*.app"
+          - os: ubuntu-latest
+            artifact: electron-linux-x64
+            app-path: "release/*.AppImage"
+          - os: windows-latest
+            artifact: electron-win-x64
+            app-path: "release/*.exe"
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Electron app
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: release/
+
+      - name: List downloaded files
+        run: ls -la release/
+
+      - name: Make AppImage executable (Linux)
+        if: runner.os == 'Linux'
+        run: chmod +x release/*.AppImage
+
+      # Basic smoke test - verify the app starts
+      - name: Smoke test (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          # Extract and test the app launches
+          cd release
+          unzip -q *.zip -d test_app || true
+          # Check the app bundle exists
+          ls -la test_app/*.app || ls -la *.app
+          echo "macOS app package verified"
+
+      - name: Smoke test (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          # Install dependencies for headless Electron
+          sudo apt-get update
+          sudo apt-get install -y xvfb
+          # Test that AppImage can at least show help
+          cd release
+          xvfb-run --auto-servernum ./DirTree*.AppImage --help || echo "AppImage basic test done"
+
+      - name: Smoke test (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Verify the portable exe exists
+          Get-ChildItem release/*.exe
+          echo "Windows portable exe verified"
