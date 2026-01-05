@@ -67,6 +67,7 @@ jobs:
   # Build Electron app for all platforms
   build-electron:
     needs: build-rust-cli
+    if: ${{ !cancelled() }}  # Run even if some rust-cli builds were cancelled
     strategy:
       fail-fast: false
       matrix:
@@ -143,6 +144,7 @@ jobs:
   # Test the built apps
   test-electron:
     needs: build-electron
+    if: ${{ !cancelled() }}  # Run even if some electron builds were skipped
     strategy:
       fail-fast: false
       matrix:
