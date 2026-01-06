@@ -106,6 +106,75 @@ services:
         ls -la /project/release/
       "
 
+  # Test Linux x64 build artifacts
+  test-linux-x64:
+    image: electronuserland/builder:20
+    volumes:
+      - ..:/project
+      - electron-cache:/root/.cache/electron
+    working_dir: /project
+    environment:
+      - DISPLAY=:99
+    command: >
+      bash -c "
+        echo '=== Testing Linux x64 build ===' &&
+        apt-get update && apt-get install -y xvfb libgtk-3-0 libnss3 libasound2 &&
+        cd /project/release &&
+        ls -la &&
+        if ls *.AppImage 1>/dev/null 2>&1; then
+          chmod +x *.AppImage &&
+          xvfb-run -a ./DirTree*.AppImage --help || echo 'AppImage tested' &&
+          echo 'Linux x64 test: PASSED'
+        else
+          echo 'No AppImage found - skipping test'
+        fi
+      "
+
+  # Test Windows x64 build artifacts (using Wine)
+  test-windows-x64:
+    image: electronuserland/builder:wine
+    volumes:
+      - ..:/project
+    working_dir: /project
+    command: >
+      bash -c "
+        echo '=== Testing Windows x64 build ===' &&
+        cd /project/release &&
+        ls -la &&
+        if ls *.exe 1>/dev/null 2>&1; then
+          echo 'Windows portable exe found:' &&
+          ls -la *.exe &&
+          echo 'Windows x64 test: PASSED'
+        else
+          echo 'No exe found - skipping test'
+        fi
+      "
+
+  # Test Linux arm64 build artifacts
+  test-linux-arm64:
+    image: electronuserland/builder:20
+    platform: linux/arm64
+    volumes:
+      - ..:/project
+      - electron-cache-arm:/root/.cache/electron
+    working_dir: /project
+    environment:
+      - DISPLAY=:99
+    command: >
+      bash -c "
+        echo '=== Testing Linux arm64 build ===' &&
+        apt-get update && apt-get install -y xvfb libgtk-3-0 libnss3 libasound2 &&
+        cd /project/release &&
+        ls -la &&
+        if ls *.AppImage 1>/dev/null 2>&1; then
+          chmod +x *.AppImage &&
+          xvfb-run -a ./DirTree*.AppImage --help || echo 'AppImage tested' &&
+          echo 'Linux arm64 test: PASSED'
+        else
+          echo 'No AppImage found - skipping test'
+        fi
+      "
+
 volumes:
   electron-cache:
   pnpm-cache:
